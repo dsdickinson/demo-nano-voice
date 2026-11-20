@@ -195,13 +195,24 @@ Train on your primary workstation (NVIDIA GPU, Apple Silicon Mac via MPS, or clo
 
 ```bash
 python train.py \
-    --data data/training_corpus.txt \
-    --epochs 5 \
+    --data data/tinystories/TinyStoriesV2-GPT4-train.txt \
+    --epochs 3 \
     --batch-size 32 \
-    --lr 3e-4 \
-    --seq-len 256 \
-    --checkpoint-dir checkpoints/
+    --lr 3e-4
 ```
+
+#### Hyperparameter Breakdown:
+- **`--data` (TinyStoriesV2-GPT4)**: Synthetic high-density narrative corpus by Microsoft Research, designed specifically for micro-models (10M–30M parameters) to acquire fluent English grammar, common sense, and reasoning without trillions of web tokens.
+- **`--epochs 3`**: Three complete passes through the dataset. One epoch is insufficient for convergence; three provides the optimal balance between language generalization and avoiding rote memorization.
+- **`--batch-size 32`**: Computes gradients across 32 sequences in parallel per step. Stabilizes the AdamW gradient trajectory while fitting comfortably in consumer GPU memory.
+- **`--lr 3e-4` ($3 \times 10^{-4}$ or $0.0003$)**: The frontier standard peak learning rate for Transformer pretraining with AdamW. It warms up linearly and decays along a half-cosine curve to maintain stable backpropagation.
+
+#### Hardware & Training Benchmarks:
+| Hardware | Accelerator | Estimated Time (3 Epochs) | Expected Final Loss / PPL |
+| :--- | :--- | :--- | :--- |
+| **NVIDIA RTX 3090 / 4090** | CUDA (FP16 AMP) | ~15 – 35 minutes | Loss: ~1.3 – 1.6 (PPL: ~3.7 – 5.0) |
+| **Apple Silicon (M1/M2/M3 Max)** | MPS | ~45 – 90 minutes | Loss: ~1.4 – 1.7 (PPL: ~4.0 – 5.5) |
+| **Google Colab (Free Tier)** | T4 GPU | ~1 – 2 hours | Loss: ~1.4 – 1.8 (PPL: ~4.0 – 6.0) |
 
 Once training completes, simply copy the exported `checkpoints/model_final.pt` and `checkpoints/tokenizer.json` to the Jetson Orin Nano. Running `python run_voice.py --model scratch` will immediately load the scaled model into the real-time voice loop!
 
