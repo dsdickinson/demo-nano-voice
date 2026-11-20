@@ -274,6 +274,24 @@ The runtime automatically:
 
 ---
 
+## 🔍 Observations & Engineering Insights
+
+### 1. The 2.1GB BPE Memory Explosion (`Killed: 9` Post-Mortem)
+- **Symptom**: When launching pretraining against the full 2.1GB `TinyStoriesV2-GPT4-train.txt` dataset, the process ran for 46 minutes (accumulating 14 minutes of `sys` CPU time) before being terminated by the operating system with `Killed: 9` (`SIGKILL`).
+- **Root Cause**: Naively training a Byte-Pair Encoding (BPE) tokenizer across 2.1GB of raw text in Python split the corpus into ~400,000,000 words. Representing these words as individual Python `bytes` and list pointers consumed over 60GB of RAM, exhausting physical memory and driving the operating system into severe swap thrashing until the kernel OOM-killer intervened.
+- **Resolution**:
+  - **Sample-Based BPE Training**: Refactored tokenizer training to extract a representative 5MB text sample. This learns the complete vocabulary and merge ranks in **~17 seconds** using under 100MB of RAM.
+  - **Tokenizer Checkpoint Reuse**: `train.py` now checks for existing `checkpoints/tokenizer.json` files and loads them instantly, bypassing redundant training runs.
+  - **Contiguous Flat Tensor Datasets**: Replaced nested Python sample lists with a contiguous 1D `torch.long` tensor in `core/dataset.py`, slicing context windows dynamically in `__getitem__` to keep the memory footprint under 500MB.
+  - **Streaming Ingestion**: Added chunked file reading with a configurable `--max-chars` flag (defaults to 50,000,000 characters / ~10M tokens) to protect developer workstations from OOM exceptions.
+
+### 2. Autoregressive KV-Cache Prefill Integrity
+- **Symptom**: Initial inference tests on the from-scratch model produced repetitive character sequences (`"s s s s"`).
+- **Root Cause**: During the initial prompt prefill step, keys and values were calculated for the prompt tokens, but the cache initialization logic discarded them because the previous cache state was `None`. Subsequent autoregressive decoding steps were running in complete isolation with zero prompt context.
+- **Resolution**: Updated `GroupedQueryAttention.forward()` to capture and return the prompt's key-value tensors on the first step (`elif use_cache: updated_kv_cache = (xk, xv)`), ensuring every subsequent token attends to the complete historical context.
+
+---
+
 ## 🧪 Running Unit Tests
 
 Run the comprehensive pytest suite verifying model shapes, RoPE rotations, GQA caching, and vector retrieval:

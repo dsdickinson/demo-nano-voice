@@ -10,32 +10,33 @@ from core.tokenizer import BPETokenizer
 
 class CausalTextDataset(Dataset):
     """
-    Dataset for autoregressive causal language modeling.
-    Splits token stream into chunks of (seq_len + 1) tokens,
-    yielding (x, y) where y is x shifted by one token to the right.
+    Memory-efficient dataset for causal language modeling.
+    Stores tokens in a single contiguous tensor and slices (x, y) on-the-fly.
     """
     def __init__(
         self,
-        token_ids: List[int],
+        token_ids: Union[List[int], torch.Tensor],
         seq_len: int = 128,
         overlap: int = 0
     ):
         self.seq_len = seq_len
-        self.samples: List[Tuple[torch.Tensor, torch.Tensor]] = []
+        self.step = max(1, seq_len - overlap)
+        if isinstance(token_ids, torch.Tensor):
+            self.tokens = token_ids.to(dtype=torch.long)
+        else:
+            self.tokens = torch.tensor(token_ids, dtype=torch.long)
 
-        step = max(1, seq_len - overlap)
-        for i in range(0, len(token_ids) - seq_len, step):
-            chunk = token_ids[i : i + seq_len + 1]
-            if len(chunk) == seq_len + 1:
-                x = torch.tensor(chunk[:-1], dtype=torch.long)
-                y = torch.tensor(chunk[1:], dtype=torch.long)
-                self.samples.append((x, y))
+        self.num_samples = max(0, (len(self.tokens) - (self.seq_len + 1)) // self.step + 1)
 
     def __len__(self) -> int:
-        return len(self.samples)
+        return self.num_samples
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.samples[idx]
+        start = idx * self.step
+        chunk = self.tokens[start : start + self.seq_len + 1]
+        x = chunk[:-1]
+        y = chunk[1:]
+        return x, y
 
 
 class DialogueDataset(Dataset):

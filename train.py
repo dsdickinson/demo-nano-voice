@@ -181,9 +181,16 @@ def main():
     parser = argparse.ArgumentParser(description="Train custom DecoderLLM from scratch.")
     parser.add_argument("--data", type=str, default="data/sample_train.txt", help="Path to training text file")
     parser.add_argument("--epochs", type=int, default=3, help="Number of training epochs")
-    parser.add_argument("--batch-size", type=int, default=8, help="Batch size")
-    parser.add_argument("--seq-len", type=int, default=64, help="Context sequence length")
-    parser.add_argument("--lr", type=float, default=5e-4, help="Peak learning rate")
+    parser.add_argument("--batch-size", type=int, default=32, help="Batch size")
+    parser.add_argument("--seq-len", type=int, default=256, help="Context sequence length")
+    parser.add_argument("--lr", type=float, default=3e-4, help="Peak learning rate")
+    parser.add_argument("--vocab-size", type=int, default=4096, help="BPE vocabulary size")
+    parser.add_argument("--dim", type=int, default=384, help="Model hidden dimension")
+    parser.add_argument("--n-layers", type=int, default=8, help="Number of Transformer blocks")
+    parser.add_argument("--n-heads", type=int, default=6, help="Number of Query attention heads")
+    parser.add_argument("--n-kv-heads", type=int, default=2, help="Number of Key/Value heads (GQA)")
+    parser.add_argument("--max-chars", type=int, default=50_000_000, help="Maximum characters to load from dataset (prevents OOM on multi-GB files, set 0 for all)")
+    parser.add_argument("--tokenizer", type=str, default=None, help="Path to pre-trained tokenizer JSON (reuses if exists)")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Directory to save checkpoints")
     args = parser.parse_args()
 
@@ -196,29 +203,61 @@ def main():
         print(f"[!] Data file '{args.data}' not found. Run 'tools/train_toy.py' first for quick demo.")
         return
 
-    with open(args.data, "r", encoding="utf-8") as f:
-        text = f.read()
+    os.makedirs(args.checkpoint_dir, exist_ok=True)
+    tok_path = args.tokenizer or os.path.join(args.checkpoint_dir, "tokenizer.json")
 
-    print("[*] Training BPE tokenizer on corpus...")
-    tokenizer = BPETokenizer.train_from_texts([text], target_vocab_size=4096)
-    tok_path = os.path.join(args.checkpoint_dir, "tokenizer.json")
-    tokenizer.save(tok_path)
+    # 1. Reuse existing tokenizer or train on a 5MB representative sample
+    if os.path.exists(tok_path):
+        print(f"[✓] Loading existing BPE tokenizer from {tok_path}...")
+        tokenizer = BPETokenizer.load(tok_path)
+    else:
+        print(f"[*] Training BPE tokenizer on a 5MB sample of {args.data} (target vocab: {args.vocab_size})...")
+        with open(args.data, "r", encoding="utf-8", errors="ignore") as f:
+            sample_text = f.read(5_000_000)
+        tokenizer = BPETokenizer.train_from_texts([sample_text], target_vocab_size=args.vocab_size)
+        tokenizer.save(tok_path)
+        print(f"[✓] Trained tokenizer with {tokenizer.vocab_size} tokens and saved to {tok_path}.")
 
-    token_ids = tokenizer.encode(text)
-    dataset = CausalTextDataset(token_ids, seq_len=args.seq_len)
+    # 2. Memory-efficient chunked dataset reading and tokenization
+    print(f"[*] Loading and tokenizing training text from {args.data}...")
+    token_ids_list = []
+    chars_read = 0
+    chunk_size = 5_000_000  # Read in 5MB blocks to keep memory footprint flat
+
+    with open(args.data, "r", encoding="utf-8", errors="ignore") as f:
+        while True:
+            if args.max_chars > 0 and chars_read >= args.max_chars:
+                print(f"[*] Reached max character budget ({args.max_chars:,} chars).")
+                break
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+            encoded_chunk = tokenizer.encode(chunk)
+            token_ids_list.extend(encoded_chunk)
+            chars_read += len(chunk)
+            print(f"  Processed {chars_read / (1024**2):.1f} MB -> {len(token_ids_list):,} tokens...", end="\r")
+
+    print(f"\n[✓] Total tokens loaded into dataset: {len(token_ids_list):,}")
+
+    token_tensor = torch.tensor(token_ids_list, dtype=torch.long)
+    dataset = CausalTextDataset(token_tensor, seq_len=args.seq_len)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+    print(f"[✓] Created {len(dataset):,} training sequences (batch size: {args.batch_size}).")
 
+    # 3. Initialize Scaled Model Architecture
     config = ModelConfig(
         vocab_size=tokenizer.vocab_size,
-        dim=128,
-        n_layers=8,
-        n_heads=4,
-        n_kv_heads=2,
+        dim=args.dim,
+        n_layers=args.n_layers,
+        n_heads=args.n_heads,
+        n_kv_heads=args.n_kv_heads,
         max_seq_len=args.seq_len
     )
     model = DecoderLLM(config)
-    print(f"[*] Initialized DecoderLLM with {model.count_parameters()['total']:,} parameters.")
+    total_params = model.count_parameters()["total"]
+    print(f"[*] Initialized DecoderLLM with {total_params:,} parameters ({total_params / 1e6:.1f}M).")
 
+    # 4. Launch Training Loop
     train_model(
         model=model,
         dataloader=dataloader,

@@ -44,12 +44,19 @@ class BPETokenizer:
         return len(self.vocab)
 
     @classmethod
-    def train_from_texts(cls, texts: List[str], target_vocab_size: int = 1000, min_freq: int = 2) -> "BPETokenizer":
+    def train_from_texts(
+        cls,
+        texts: List[str],
+        target_vocab_size: int = 1000,
+        min_freq: int = 2,
+        max_sample_chars: int = 5_000_000
+    ) -> "BPETokenizer":
         """
-        Train a byte-level BPE tokenizer on a list of input texts.
+        Train a byte-level BPE tokenizer using fast dictionary-based pair counting.
         Initializes vocabulary with all 256 individual byte values + special tokens,
-        then iteratively merges the most frequent adjacent pairs.
+        then iteratively merges the most frequent adjacent pairs over a unique word dictionary.
         """
+        from collections import Counter
         tokenizer = cls()
 
         # Add all 256 single-byte base tokens
@@ -60,28 +67,34 @@ class BPETokenizer:
                 tokenizer.vocab[idx] = b_bytes
                 tokenizer.inverse_vocab[b_bytes] = idx
 
-        # Pre-tokenize texts into list of byte chunks
-        # Each word is represented as a list of 1-byte sequences
-        words: List[List[bytes]] = []
+        # Pre-tokenize sample texts into word frequency dictionary: Tuple[bytes] -> count
+        char_count = 0
+        word_freqs: Counter = Counter()
+
         for text in texts:
+            if char_count >= max_sample_chars:
+                break
             for word in text.strip().split():
                 if word:
-                    words.append([bytes([b]) for b in word.encode("utf-8")])
+                    # Represent word as a tuple of single-byte elements
+                    word_tuple = tuple(bytes([b]) for b in word.encode("utf-8"))
+                    word_freqs[word_tuple] += 1
+                    char_count += len(word)
+                    if char_count >= max_sample_chars:
+                        break
 
-        # Iteratively merge pairs until target_vocab_size is reached
+        # Iteratively merge pairs using Sennrich dictionary algorithm
         while len(tokenizer.vocab) < target_vocab_size:
-            # Count pair frequencies
-            pair_counts: Dict[Tuple[bytes, bytes], int] = {}
-            for word in words:
-                for i in range(len(word) - 1):
-                    pair = (word[i], word[i + 1])
-                    pair_counts[pair] = pair_counts.get(pair, 0) + 1
+            # Count pair frequencies across unique words weighted by frequency
+            pair_counts: Counter = Counter()
+            for word_tuple, freq in word_freqs.items():
+                for i in range(len(word_tuple) - 1):
+                    pair_counts[(word_tuple[i], word_tuple[i + 1])] += freq
 
             if not pair_counts:
                 break
 
-            # Find best pair
-            best_pair, highest_freq = max(pair_counts.items(), key=lambda item: item[1])
+            best_pair, highest_freq = pair_counts.most_common(1)[0]
             if highest_freq < min_freq:
                 break
 
@@ -93,20 +106,20 @@ class BPETokenizer:
             tokenizer.merges.append(best_pair)
             tokenizer.merge_ranks[best_pair] = len(tokenizer.merges) - 1
 
-            # Update words with new merged token
-            new_words = []
-            for word in words:
+            # Update unique word tuples with the new merged token
+            new_word_freqs: Counter = Counter()
+            for word_tuple, freq in word_freqs.items():
                 i = 0
-                new_word = []
-                while i < len(word):
-                    if i < len(word) - 1 and (word[i], word[i + 1]) == best_pair:
-                        new_word.append(new_token)
+                new_tuple = []
+                while i < len(word_tuple):
+                    if i < len(word_tuple) - 1 and (word_tuple[i], word_tuple[i + 1]) == best_pair:
+                        new_tuple.append(new_token)
                         i += 2
                     else:
-                        new_word.append(word[i])
+                        new_tuple.append(word_tuple[i])
                         i += 1
-                new_words.append(new_word)
-            words = new_words
+                new_word_freqs[tuple(new_tuple)] += freq
+            word_freqs = new_word_freqs
 
         return tokenizer
 
