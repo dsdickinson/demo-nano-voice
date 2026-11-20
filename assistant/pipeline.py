@@ -48,6 +48,7 @@ class VoiceAssistantPipeline:
         )
 
         # 5. Dual-Engine LLM Core
+        self.llm_type = llm_type
         self.llm = create_llm_runner(model_type=llm_type)
         print("[✓] Pipeline initialized and ready.")
 
@@ -55,12 +56,17 @@ class VoiceAssistantPipeline:
         """Process a text query, retrieve knowledge, generate response, and speak."""
         print(f"\n[👤 User]: {query}")
 
-        # Retrieve relevant knowledge
-        retrieved = self.vector_store.search(query, top_k=2)
-        augmented_prompt = format_rag_prompt(query, retrieved)
+        # Format prompt based on model engine
+        if self.llm_type == "scratch":
+            # Direct prompt matching custom model training distribution
+            prompt = f"User: {query}\nNova:"
+        else:
+            # Full RAG augmented prompt for instruct models
+            retrieved = self.vector_store.search(query, top_k=2)
+            prompt = format_rag_prompt(query, retrieved)
 
         print("[🧠 Thinking & Generating...]")
-        for token_chunk in self.llm.stream_generate(augmented_prompt):
+        for token_chunk in self.llm.stream_generate(prompt):
             self.tts.process_token(token_chunk)
         self.tts.flush()
 

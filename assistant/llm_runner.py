@@ -44,9 +44,10 @@ class ScratchLLMRunner(BaseLLMRunner):
         self,
         prompt: str,
         max_new_tokens: int = 50,
-        temperature: float = 0.7
+        temperature: float = 0.2
     ) -> Generator[str, None, None]:
         input_ids = torch.tensor([self.tokenizer.encode(prompt, add_bos=True)], device=self.device)
+        accumulated = ""
         for token_id in self.model.generate(
             input_ids,
             max_new_tokens=max_new_tokens,
@@ -54,6 +55,13 @@ class ScratchLLMRunner(BaseLLMRunner):
             eos_id=self.tokenizer.eos_id
         ):
             token_str = self.tokenizer.decode([token_id], skip_special_tokens=True)
+            accumulated += token_str
+            if "User:" in accumulated or "\n" in accumulated:
+                # Completed conversational turn
+                clean_chunk = token_str.replace("User:", "").strip()
+                if clean_chunk:
+                    yield clean_chunk
+                break
             yield token_str
 
 

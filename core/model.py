@@ -137,6 +137,7 @@ class GroupedQueryAttention(nn.Module):
         freqs_cis: torch.Tensor,
         kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         start_pos: int = 0,
+        use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         bsz, seqlen, _ = x.shape
 
@@ -156,9 +157,11 @@ class GroupedQueryAttention(nn.Module):
         # KV-Cache update for autoregressive generation
         if kv_cache is not None:
             prev_k, prev_v = kv_cache
-            # Concatenate along sequence dimension
             xk = torch.cat([prev_k, xk], dim=1)
             xv = torch.cat([prev_v, xv], dim=1)
+            updated_kv_cache = (xk, xv)
+        elif use_cache:
+            # First prefill step: initialize cache with prompt keys and values
             updated_kv_cache = (xk, xv)
         else:
             updated_kv_cache = None
@@ -217,13 +220,15 @@ class TransformerBlock(nn.Module):
         freqs_cis: torch.Tensor,
         kv_cache: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
         start_pos: int = 0,
+        use_cache: bool = False,
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         # Pre-norm Attention with residual
         h_attn, new_kv = self.attention(
             self.attention_norm(x),
             freqs_cis=freqs_cis,
             kv_cache=kv_cache,
-            start_pos=start_pos
+            start_pos=start_pos,
+            use_cache=use_cache
         )
         x = x + h_attn
         # Pre-norm FFN with residual
@@ -302,7 +307,8 @@ class DecoderLLM(nn.Module):
         # Slice RoPE frequencies for current positions
         freqs_cis = self.freqs_cis[start_pos : needed_pos]
 
-        new_kv_caches = [] if kv_caches is not None else None
+        use_cache = (kv_caches is not None)
+        new_kv_caches = [] if use_cache else None
 
         for idx, layer in enumerate(self.layers):
             layer_cache = kv_caches[idx] if kv_caches is not None else None
@@ -310,7 +316,8 @@ class DecoderLLM(nn.Module):
                 h,
                 freqs_cis=freqs_cis,
                 kv_cache=layer_cache,
-                start_pos=start_pos
+                start_pos=start_pos,
+                use_cache=use_cache
             )
             if new_kv_caches is not None:
                 new_kv_caches.append(updated_cache)
