@@ -185,10 +185,20 @@ config = ModelConfig(
 )
 ```
 
-### 2. Prepare Curated Training Corpora
-To achieve grammatical fluency and coherent conversational logic without needing cluster-scale compute:
-- **TinyStories** (~500MB): Synthetic English stories that teach small transformers vocabulary, reasoning, and consistent character dialogue.
-- **UltraChat / SmolTalk Subsets** (~100MB): Multi-turn conversational pairs ideal for assistant alignment.
+### 2. Download the TinyStories Dataset
+To achieve grammatical fluency and coherent conversational logic without needing cluster-scale compute, we use the **TinyStories V2** dataset (synthetic English stories by Microsoft Research).
+
+Download the dataset using the Hugging Face CLI:
+
+```bash
+# 1. Install Hugging Face CLI (if not already installed)
+curl -LsSf https://hf.co/cli/install.sh | bash
+
+# 2. Download the TinyStories V2 dataset to data/tinystories/
+mkdir -p data/tinystories
+hf download roneneldan/TinyStories TinyStoriesV2-GPT4-train.txt --repo-type=dataset --local-dir ./data/tinystories
+cd ..
+```
 
 ### 3. Launching Device-Agnostic Training
 Train on your primary workstation (NVIDIA GPU, Apple Silicon Mac via MPS, or cloud Colab):
