@@ -12,6 +12,14 @@ import torch
 from rag.ingest import DocumentChunk
 
 
+def _fnv1a_hash(s: str, modulus: int) -> int:
+    """Deterministic hash independent of Python process hash randomization."""
+    h = 2166136261
+    for b in s.encode("utf-8"):
+        h = ((h ^ b) * 16777619) & 0xFFFFFFFF
+    return h % modulus
+
+
 class SimpleEmbeddingModel:
     """
     Lightweight zero-dependency embedding encoder using subword/character hash n-grams
@@ -31,12 +39,12 @@ class SimpleEmbeddingModel:
                 continue
 
             for w in words:
-                # Hash n-grams into vector slots
-                h = hash(w) % self.dim
+                # Deterministic hash n-grams into vector slots
+                h = _fnv1a_hash(w, self.dim)
                 vec[h] += 1.0
                 for i in range(len(w) - 2):
                     sub = w[i:i+3]
-                    h_sub = hash(sub) % self.dim
+                    h_sub = _fnv1a_hash(sub, self.dim)
                     vec[h_sub] += 0.5
 
             norm = np.linalg.norm(vec)

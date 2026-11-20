@@ -167,6 +167,46 @@ python run_voice.py --model instruct --text-only
 
 ---
 
+## 📈 Scaling Beyond the Toy Model: From 340K to 25M+ Parameters
+
+While `tools/train_toy.py` provides an immediate ~30-second verification run for KV caching and tensor flow, the custom Transformer architecture (`core/model.py`) is designed to scale seamlessly into a production-grade micro-LLM (15M to 45M parameters).
+
+### 1. Scale Model Capacity
+In `train.py`, increase the architectural parameters to scale from base settings up to ~25M parameters (notably expanding `vocab_size` to 4096 from the initial 1024, and increasing `n_layers` to 8 from the initial 4):
+
+```python
+config = ModelConfig(
+    vocab_size=4096,     # Expanded subword vocabulary (originally set to 1024)
+    dim=384,             # Hidden representation dimension (vs 96 in toy)
+    n_layers=8,          # 8 Transformer blocks (originally set to 4)
+    n_heads=6,           # 6 Query attention heads
+    n_kv_heads=2,        # 2 Key-Value heads (3:1 GQA head sharing ratio)
+    max_seq_len=256      # Extended autoregressive context window
+)
+```
+
+### 2. Prepare Curated Training Corpora
+To achieve grammatical fluency and coherent conversational logic without needing cluster-scale compute:
+- **TinyStories** (~500MB): Synthetic English stories that teach small transformers vocabulary, reasoning, and consistent character dialogue.
+- **UltraChat / SmolTalk Subsets** (~100MB): Multi-turn conversational pairs ideal for assistant alignment.
+
+### 3. Launching Device-Agnostic Training
+Train on your primary workstation (NVIDIA GPU, Apple Silicon Mac via MPS, or cloud Colab):
+
+```bash
+python train.py \
+    --data data/training_corpus.txt \
+    --epochs 5 \
+    --batch-size 32 \
+    --lr 3e-4 \
+    --seq-len 256 \
+    --checkpoint-dir checkpoints/
+```
+
+Once training completes, simply copy the exported `checkpoints/model_final.pt` and `checkpoints/tokenizer.json` to the Jetson Orin Nano. Running `python run_voice.py --model scratch` will immediately load the scaled model into the real-time voice loop!
+
+---
+
 ## 🧪 Running Unit Tests
 
 Run the comprehensive pytest suite verifying model shapes, RoPE rotations, GQA caching, and vector retrieval:

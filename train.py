@@ -200,7 +200,7 @@ def main():
         text = f.read()
 
     print("[*] Training BPE tokenizer on corpus...")
-    tokenizer = BPETokenizer.train_from_texts([text], target_vocab_size=1024)
+    tokenizer = BPETokenizer.train_from_texts([text], target_vocab_size=4096)
     tok_path = os.path.join(args.checkpoint_dir, "tokenizer.json")
     tokenizer.save(tok_path)
 
@@ -211,7 +211,7 @@ def main():
     config = ModelConfig(
         vocab_size=tokenizer.vocab_size,
         dim=128,
-        n_layers=4,
+        n_layers=8,
         n_heads=4,
         n_kv_heads=2,
         max_seq_len=args.seq_len
