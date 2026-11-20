@@ -223,7 +223,41 @@ python train.py \
 | **Apple Silicon (M1/M2/M3 Max)** | MPS | ~45 – 90 minutes | Loss: ~1.4 – 1.7 (PPL: ~4.0 – 5.5) |
 | **Google Colab (Free Tier)** | T4 GPU | ~1 – 2 hours | Loss: ~1.4 – 1.8 (PPL: ~4.0 – 6.0) |
 
-Once training completes, simply copy the exported `checkpoints/model_final.pt` and `checkpoints/tokenizer.json` to the Jetson Orin Nano. Running `python run_voice.py --model scratch` will immediately load the scaled model into the real-time voice loop!
+### 4. Deploying Trained Checkpoints to the Jetson Orin Nano
+
+When pretraining finishes, your training run outputs two essential companion files:
+- **`model_final.pt` (The Brain's Neurons)**: Serialized PyTorch weights containing all learned attention matrices ($W_q, W_k, W_v, W_{gate}, W_{up}, W_{down}$), RMSNorm parameters, and architectural configuration metadata.
+- **`tokenizer.json` (The Language Dictionary)**: Learned Byte-Pair Encoding (BPE) vocabulary and merge tables used to encode spoken words into token IDs and decode generated output IDs back into text.
+
+#### Checkpoint Placement on the Jetson Orin Nano:
+Place both exported files directly into the **`checkpoints/`** folder of your repository on the Jetson Orin Nano:
+
+```
+demo-nano-voice/                       <-- Root project directory on Jetson
+├── assistant/
+├── core/
+├── docs/
+├── profiles/
+├── rag/
+├── tools/
+├── checkpoints/                       <-- 📁 Place exported checkpoint files here
+│   ├── model_final.pt                 <-- Your trained PyTorch weights
+│   └── tokenizer.json                 <-- Your trained BPE tokenizer
+├── run_voice.py
+└── train.py
+```
+
+#### Running the Scaled Model:
+When you launch the assistant with your custom weights:
+```bash
+python run_voice.py --model scratch
+```
+
+The runtime automatically:
+1. Loads `checkpoints/model_final.pt` and reads the model dimensions (`dim`, `n_layers`, `n_heads`).
+2. Allocates the Transformer directly in the Jetson Orin Nano's unified memory (LPDDR5 RAM/GPU pool).
+3. Initializes `checkpoints/tokenizer.json` for token translation.
+4. Links the microphone, local RAG vector store, and neural female TTS into the live conversational loop!
 
 ---
 

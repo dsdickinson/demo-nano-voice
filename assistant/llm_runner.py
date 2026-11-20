@@ -24,7 +24,7 @@ class ScratchLLMRunner(BaseLLMRunner):
     def __init__(
         self,
         checkpoint_path: str = "checkpoints/model_final.pt",
-        tokenizer_path: str = "checkpoints/toy_tokenizer.json",
+        tokenizer_path: Optional[str] = None,
         device: Optional[torch.device] = None
     ):
         self.device = device or get_optimal_device()
@@ -35,6 +35,15 @@ class ScratchLLMRunner(BaseLLMRunner):
 
         self.model, self.config, _ = load_checkpoint(checkpoint_path, device=self.device)
         self.model.eval()
+
+        # Automatically resolve tokenizer file
+        if tokenizer_path is None:
+            if os.path.exists("checkpoints/tokenizer.json"):
+                tokenizer_path = "checkpoints/tokenizer.json"
+            elif os.path.exists("checkpoints/toy_tokenizer.json"):
+                tokenizer_path = "checkpoints/toy_tokenizer.json"
+            else:
+                tokenizer_path = "checkpoints/tokenizer.json"
 
         if not os.path.exists(tokenizer_path):
             raise FileNotFoundError(f"Tokenizer not found at '{tokenizer_path}'.")
