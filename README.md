@@ -165,7 +165,7 @@ python run_voice.py --model scratch --text-only
 python run_voice.py --model instruct --text-only
 ```
 
-#### Example Interaction:
+#### Example Interaction (using microphone for prompting):
 ```
 [👤 User]: How are you today?
 [🧠 Thinking & Generating...]
