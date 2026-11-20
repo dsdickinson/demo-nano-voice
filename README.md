@@ -197,7 +197,6 @@ curl -LsSf https://hf.co/cli/install.sh | bash
 # 2. Download the TinyStories V2 dataset to data/tinystories/
 mkdir -p data/tinystories
 hf download roneneldan/TinyStories TinyStoriesV2-GPT4-train.txt --repo-type=dataset --local-dir ./data/tinystories
-cd ..
 ```
 
 ### 3. Launching Device-Agnostic Training
