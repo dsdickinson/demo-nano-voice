@@ -165,6 +165,19 @@ python run_voice.py --model scratch --text-only
 python run_voice.py --model instruct --text-only
 ```
 
+#### Example Interaction:
+```
+[👤 User]: How are you today?
+[🧠 Thinking & Generating...]
+[🔊 Nova speaking]: "I am doing wonderful!"
+[🔊 Nova speaking]: "All systems and neural engines are running smoothly."
+
+[👤 User]: You know my name?
+[🧠 Thinking & Generating...]
+[🔊 Nova speaking]: "Honeybees device."
+[🔊 Nova speaking]: "How can I help you today?"
+```
+
 ---
 
 ## 📈 Scaling Beyond the Toy Model: From 340K to 25M+ Parameters
