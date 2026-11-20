@@ -1,4 +1,4 @@
-# 🎙️ Nano-Voice: Edge AI Conversational Assistant & From-Scratch LLM
+# 🎙️ demo-nano-voice: Edge AI Voice Assistant & Transformer from Scratch
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -77,7 +77,7 @@ It pairs deep learning fundamentals (zero-black-box Transformer architecture wit
 ## 📂 Repository Structure
 
 ```
-demo_llm_training/
+demo-nano-voice/
 ├── core/                    # Core deep learning modules from scratch
 │   ├── model.py             # RMSNorm, RoPE, GQA, SwiGLU, DecoderLLM, KV-Cache
 │   ├── tokenizer.py         # Byte-level BPE tokenizer (train, encode, decode)
@@ -116,8 +116,8 @@ demo_llm_training/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/nano-voice.git
-cd nano-voice
+git clone https://github.com/your-username/demo-nano-voice.git
+cd demo-nano-voice
 
 # Create and activate Python virtual environment
 python3 -m venv .venv
