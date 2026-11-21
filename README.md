@@ -221,7 +221,7 @@ python train.py \
     --epochs 3 \
     --batch-size 32 \
     --lr 3e-4 \
-    --max-chars 50000000
+    --max-chars 5000000
 ```
 
 #### Hyperparameter Breakdown:
