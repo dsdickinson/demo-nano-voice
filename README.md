@@ -220,7 +220,8 @@ python train.py \
     --data data/tinystories/TinyStoriesV2-GPT4-train.txt \
     --epochs 3 \
     --batch-size 32 \
-    --lr 3e-4
+    --lr 3e-4 \
+    --max-chars 50000000
 ```
 
 #### Hyperparameter Breakdown:
@@ -228,6 +229,7 @@ python train.py \
 - **`--epochs 3`**: Three complete passes through the dataset. One epoch is insufficient for convergence; three provides the optimal balance between language generalization and avoiding rote memorization.
 - **`--batch-size 32`**: Computes gradients across 32 sequences in parallel per step. Stabilizes the AdamW gradient trajectory while fitting comfortably in consumer GPU memory.
 - **`--lr 3e-4` ($3 \times 10^{-4}$ or $0.0003$)**: The frontier standard peak learning rate for Transformer pretraining with AdamW. It warms up linearly and decays along a half-cosine curve to maintain stable backpropagation.
+- **`--max-chars 50000000` (50M characters)**: Character budget safeguard to prevent Out-Of-Memory (OOM) crashes when training on multi-gigabyte text files (e.g., the 2.1GB TinyStories corpus). 50M characters yields ~13M tokens—ideal for rapid, stable workstation training. Set to `0` to ingest the entire dataset without limits.
 
 #### Hardware & Training Benchmarks:
 | Hardware | Accelerator | Estimated Time (3 Epochs) | Expected Final Loss / PPL |
