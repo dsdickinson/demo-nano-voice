@@ -191,6 +191,7 @@ def main():
     parser.add_argument("--n-kv-heads", type=int, default=2, help="Number of Key/Value heads (GQA)")
     parser.add_argument("--max-chars", type=int, default=50_000_000, help="Maximum characters to load from dataset (prevents OOM on multi-GB files, set 0 for all)")
     parser.add_argument("--tokenizer", type=str, default=None, help="Path to pre-trained tokenizer JSON (reuses if exists)")
+    parser.add_argument("--device", type=str, default="auto", choices=["auto", "cuda", "mps", "cpu"], help="Compute device to train on ('auto', 'cuda', 'mps', or 'cpu')")
     parser.add_argument("--checkpoint-dir", type=str, default="checkpoints", help="Directory to save checkpoints")
     args = parser.parse_args()
 
@@ -258,11 +259,16 @@ def main():
     print(f"[*] Initialized DecoderLLM with {total_params:,} parameters ({total_params / 1e6:.1f}M).")
 
     # 4. Launch Training Loop
+    target_device = None
+    if args.device != "auto":
+        target_device = torch.device(args.device)
+
     train_model(
         model=model,
         dataloader=dataloader,
         epochs=args.epochs,
         lr=args.lr,
+        device=target_device,
         checkpoint_dir=args.checkpoint_dir,
         tokenizer=tokenizer
     )

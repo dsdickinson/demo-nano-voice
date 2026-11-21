@@ -141,6 +141,9 @@ class GroupedQueryAttention(nn.Module):
     ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
         bsz, seqlen, _ = x.shape
 
+        # Ensure input is contiguous for hardware backends (MPS / CUDA)
+        x = x.contiguous()
+
         # Linear projections
         xq = self.wq(x)
         xk = self.wk(x)
@@ -202,7 +205,9 @@ class SwiGLUFFN(nn.Module):
         self.w_down = nn.Linear(hidden_dim, dim, bias=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.w_down(F.silu(self.w_gate(x)) * self.w_up(x))
+        x = x.contiguous()
+        gate_out = F.silu(self.w_gate(x)) * self.w_up(x)
+        return self.w_down(gate_out.contiguous())
 
 
 class TransformerBlock(nn.Module):
