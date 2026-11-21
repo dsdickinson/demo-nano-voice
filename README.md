@@ -315,9 +315,7 @@ Epoch [1/3] Step [2240/7623] | Loss: 1.3955 | PPL: 4.04 | LR: 0.000248
 Epoch [1/3] Step [2260/7623] | Loss: 1.4766 | PPL: 4.38 | LR: 0.000247
 Epoch [1/3] Step [2280/7623] | Loss: 1.3335 | PPL: 3.79 | LR: 0.000246
 Epoch [1/3] Step [2300/7623] | Loss: 1.4246 | PPL: 4.16 | LR: 0.000245
-
 ...
-
 --- [Sample @ Step 7600] ---
 Prompt: The assistant
 Output:  was still in the garden because it was still there. He was sad because he
