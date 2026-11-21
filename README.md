@@ -297,8 +297,7 @@ time python train.py \
 [*] Training on device: mps
 Epoch [1/3] Step [20/7623] | Loss: 5.1167 | PPL: 166.78 | LR: 0.000120
 Epoch [1/3] Step [40/7623] | Loss: 4.1555 | PPL: 63.78 | LR: 0.000240
-  533  git add README.md
-  534  git commit -m "README.md updates."
+...
 Output:  was not happy. It was a magic fish who could sing and dance. It made
 ------------------------------
 Epoch [1/3] Step [2120/7623] | Loss: 1.4220 | PPL: 4.15 | LR: 0.000253
