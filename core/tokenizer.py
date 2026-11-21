@@ -29,6 +29,7 @@ class BPETokenizer:
         self.bos_id = self._get_or_add_special("<s>")
         self.eos_id = self._get_or_add_special("</s>")
         self.unk_id = self._get_or_add_special("<unk>")
+        self.cache: Dict[str, List[int]] = {}
 
     def _get_or_add_special(self, token_str: str) -> int:
         token_bytes = token_str.encode("utf-8")
@@ -123,21 +124,16 @@ class BPETokenizer:
 
         return tokenizer
 
-    def encode(self, text: str, add_bos: bool = False, add_eos: bool = False) -> List[int]:
-        """Encode text string into token IDs."""
-        if not text:
-            tokens = []
-            if add_bos: tokens.insert(0, self.bos_id)
-            if add_eos: tokens.append(self.eos_id)
-            return tokens
+    def _encode_chunk(self, text: str) -> List[int]:
+        """Internal BPE encoder for a single word or whitespace token."""
+        if text in self.cache:
+            return list(self.cache[text])
 
-        # Break text into initial 1-byte units
         raw_bytes = [bytes([b]) for b in text.encode("utf-8")]
 
         # Apply learned merges in rank order
         while len(raw_bytes) >= 2:
             pairs = [(raw_bytes[i], raw_bytes[i + 1]) for i in range(len(raw_bytes) - 1)]
-            # Find the lowest rank merge available
             min_rank = float("inf")
             best_pair = None
             for p in pairs:
@@ -149,7 +145,6 @@ class BPETokenizer:
             if best_pair is None:
                 break
 
-            # Merge occurrences of best_pair
             new_bytes = []
             i = 0
             while i < len(raw_bytes):
@@ -161,15 +156,32 @@ class BPETokenizer:
                     i += 1
             raw_bytes = new_bytes
 
-        # Map merged byte chunks to IDs
         token_ids = [self.inverse_vocab.get(b, self.unk_id) for b in raw_bytes]
+        # Cache word mapping (keep cache size bounded)
+        if len(self.cache) < 50000:
+            self.cache[text] = token_ids
+        return token_ids
+
+    def encode(self, text: str, add_bos: bool = False, add_eos: bool = False) -> List[int]:
+        """Encode text string into token IDs using word-level caching."""
+        if not text:
+            tokens = []
+            if add_bos: tokens.insert(0, self.bos_id)
+            if add_eos: tokens.append(self.eos_id)
+            return tokens
+
+        import re
+        tokens = []
+        words = re.findall(r'\S+|\s+', text)
+        for w in words:
+            tokens.extend(self._encode_chunk(w))
 
         if add_bos:
-            token_ids.insert(0, self.bos_id)
+            tokens.insert(0, self.bos_id)
         if add_eos:
-            token_ids.append(self.eos_id)
+            tokens.append(self.eos_id)
 
-        return token_ids
+        return tokens
 
     def decode(self, token_ids: List[int], skip_special_tokens: bool = True) -> str:
         """Decode token IDs back to a UTF-8 string."""

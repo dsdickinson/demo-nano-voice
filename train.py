@@ -13,6 +13,7 @@ import os
 import sys
 import math
 import argparse
+import contextlib
 from typing import Optional, Dict, Any, Tuple
 
 # Ensure repository root is in python path
@@ -120,9 +121,10 @@ def train_model(
     total_steps = epochs * len(dataloader)
     scheduler = get_cosine_schedule_with_warmup(optimizer, warmup_steps, total_steps)
 
-    # Mixed precision context
+    # Mixed precision context (CUDA only; use nullcontext for MPS and CPU)
     use_amp = (device.type == "cuda")
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+    autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=torch.float16) if use_amp else contextlib.nullcontext()
 
     step = 0
     model.train()
@@ -132,7 +134,7 @@ def train_model(
         for batch_idx, (x, y) in enumerate(dataloader):
             x, y = x.to(device), y.to(device)
 
-            with torch.amp.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
+            with autocast_ctx:
                 logits, _ = model(x)
                 loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1), ignore_index=-100)
 
@@ -221,24 +223,46 @@ def main():
 
     # 2. Memory-efficient chunked dataset reading and tokenization
     print(f"[*] Loading and tokenizing training text from {args.data}...")
+    import time
+    file_size = os.path.getsize(args.data)
+    target_bytes = min(file_size, args.max_chars) if args.max_chars > 0 else file_size
+    target_mb = target_bytes / (1024 ** 2)
+
     token_ids_list = []
     chars_read = 0
-    chunk_size = 5_000_000  # Read in 5MB blocks to keep memory footprint flat
+    chunk_size = 1_000_000  # 1MB blocks for smooth progress updates
+    start_time = time.time()
 
     with open(args.data, "r", encoding="utf-8", errors="ignore") as f:
         while True:
             if args.max_chars > 0 and chars_read >= args.max_chars:
-                print(f"[*] Reached max character budget ({args.max_chars:,} chars).")
                 break
-            chunk = f.read(chunk_size)
+            read_size = chunk_size if args.max_chars <= 0 else min(chunk_size, args.max_chars - chars_read)
+            chunk = f.read(read_size)
             if not chunk:
                 break
             encoded_chunk = tokenizer.encode(chunk)
             token_ids_list.extend(encoded_chunk)
             chars_read += len(chunk)
-            print(f"  Processed {chars_read / (1024**2):.1f} MB -> {len(token_ids_list):,} tokens...", end="\r")
 
-    print(f"\n[✓] Total tokens loaded into dataset: {len(token_ids_list):,}")
+            # Responsive progress bar with ETA and speed
+            elapsed = time.time() - start_time
+            pct = min(100.0, (chars_read / max(1, target_bytes)) * 100.0)
+            tok_per_sec = len(token_ids_list) / max(0.001, elapsed)
+            eta_sec = (target_bytes - chars_read) / max(1.0, (chars_read / max(0.001, elapsed)))
+            bar_len = 20
+            filled = int(bar_len * (pct / 100.0))
+            bar = "█" * filled + "░" * (bar_len - filled)
+
+            sys.stdout.write(
+                f"\r  [{bar}] {chars_read / (1024**2):.1f}/{target_mb:.1f} MB ({pct:5.1f}%) | "
+                f"Tokens: {len(token_ids_list):,} | {tok_per_sec:,.0f} tok/s | ETA: {int(eta_sec)}s "
+            )
+            sys.stdout.flush()
+
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+    print(f"[✓] Total tokens loaded into dataset: {len(token_ids_list):,} (in {time.time() - start_time:.1f}s)")
 
     token_tensor = torch.tensor(token_ids_list, dtype=torch.long)
     dataset = CausalTextDataset(token_tensor, seq_len=args.seq_len)
