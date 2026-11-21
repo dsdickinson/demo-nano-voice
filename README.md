@@ -276,6 +276,65 @@ python train.py \
     --max-chars 50000000
 ```
 
+#### Example training output
+```
+time python train.py \
+   --data data/tinystories/TinyStoriesV2-GPT4-train.txt \
+   --epochs 3 \
+   --batch-size 32 \
+   --lr 3e-4 \
+   --max-chars 50000000
+
+============================================================
+           NANO-VOICE LLM TRAINING ENGINE
+============================================================
+[✓] Loading existing BPE tokenizer from checkpoints/tokenizer.json...
+[*] Loading and tokenizing training text from data/tinystories/TinyStoriesV2-GPT4-train.txt...
+  [████████████████████] 47.7/47.7 MB (100.0%) | Tokens: 20,812,331 | 5,480,883 tok/s | ETA: 0s
+[✓] Total tokens loaded into dataset: 20,812,331 (in 3.8s)
+[✓] Created 81,298 training sequences (batch size: 32).
+[*] Initialized DecoderLLM with 14,162,304 parameters (14.2M).
+[*] Training on device: mps
+Epoch [1/3] Step [20/7623] | Loss: 5.1167 | PPL: 166.78 | LR: 0.000120
+Epoch [1/3] Step [40/7623] | Loss: 4.1555 | PPL: 63.78 | LR: 0.000240
+  533  git add README.md
+  534  git commit -m "README.md updates."
+Output:  was not happy. It was a magic fish who could sing and dance. It made
+------------------------------
+Epoch [1/3] Step [2120/7623] | Loss: 1.4220 | PPL: 4.15 | LR: 0.000253
+Epoch [1/3] Step [2140/7623] | Loss: 1.4300 | PPL: 4.18 | LR: 0.000252
+Epoch [1/3] Step [2160/7623] | Loss: 1.4735 | PPL: 4.36 | LR: 0.000252
+Epoch [1/3] Step [2180/7623] | Loss: 1.4541 | PPL: 4.28 | LR: 0.000251
+Epoch [1/3] Step [2200/7623] | Loss: 1.3339 | PPL: 3.80 | LR: 0.000250
+
+--- [Sample @ Step 2200] ---
+Prompt: The assistant
+Output:  had a special place. The little bird was very happy and said, "Thank you, little
+------------------------------
+Epoch [1/3] Step [2220/7623] | Loss: 1.4437 | PPL: 4.24 | LR: 0.000249
+Epoch [1/3] Step [2240/7623] | Loss: 1.3955 | PPL: 4.04 | LR: 0.000248
+Epoch [1/3] Step [2260/7623] | Loss: 1.4766 | PPL: 4.38 | LR: 0.000247
+Epoch [1/3] Step [2280/7623] | Loss: 1.3335 | PPL: 3.79 | LR: 0.000246
+Epoch [1/3] Step [2300/7623] | Loss: 1.4246 | PPL: 4.16 | LR: 0.000245
+
+...
+
+--- [Sample @ Step 7600] ---
+Prompt: The assistant
+Output:  was still in the garden because it was still there. He was sad because he
+------------------------------
+Epoch [3/3] Step [7620/7623] | Loss: 1.0993 | PPL: 3.00 | LR: 0.000030
+Epoch [3/3] Step [7623/7623] | Loss: 1.0720 | PPL: 2.92 | LR: 0.000030
+
+>>> Epoch 3 Complete. Average Loss: 1.0916
+
+[✓] Saved checkpoint at step 7623 to checkpoints/model_final.pt
+
+real    473m25.160s
+user    9m13.983s
+sys     1m25.163s
+```
+
 #### Hyperparameter Breakdown:
 - **`--data` (TinyStoriesV2-GPT4)**: Synthetic high-density narrative corpus by Microsoft Research, designed specifically for micro-models (10M–30M parameters) to acquire fluent English grammar, common sense, and reasoning without trillions of web tokens.
 - **`--epochs 3`**: Three complete passes through the dataset. One epoch is insufficient for convergence; three provides the optimal balance between language generalization and avoiding rote memorization.
