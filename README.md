@@ -220,7 +220,8 @@ python train.py \
     --data data/tinystories/TinyStoriesV2-GPT4-train.txt \
     --epochs 3 \
     --batch-size 32 \
-    --lr 3e-4
+    --lr 3e-4 \
+    --max-chars 5000000
 ```
 
 #### Hyperparameter Breakdown:
